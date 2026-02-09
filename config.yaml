@@ -1,0 +1,89 @@
+# OpenCode Toolbox 配置
+#
+# 安全隔离原则：
+# - 默认不挂载整个 home 目录
+# - 只挂载显式配置的项目目录
+# - SSH/Git 配置可选挂载
+# - 提供独立的 toolbox home 目录
+
+# 默认镜像
+default_image: localhost/opencode-toolbox:latest
+
+# 容器引擎: docker, podman, auto
+engine: podman
+
+# toolbox 默认设置
+defaults:
+  # 是否挂载 SSH keys (默认 false)
+  mount_ssh: true
+
+  # 是否挂载 Git 配置 (默认 true)
+  mount_gitconfig: true
+
+  # 是否挂载 Docker/Podman socket (默认 false)
+  mount_docker: true
+
+  # X11/Wayland 支持 (默认 true)
+  mount_display: true
+
+  # toolbox 在容器内的 home 目录
+  # 默认是独立的 /home/toolbox
+  # 如果设置为 "host"，则使用主机的 home 目录（不推荐）
+  home_mode: isolated
+
+# 项目目录配置
+# 可以定义多个项目，每个项目有自己的挂载点
+projects:
+  # 示例项目
+  # myproject:
+  #   # 项目根目录（主机上的路径）
+  #   path: ~/projects/myproject
+  #
+  #   # 额外挂载（相对于项目根目录）
+  #   mounts:
+  #     - type: bind
+  #       source: ~/shared-libs
+  #       target: /shared-libs
+  #       read_only: true
+  #
+  #   # 环境变量
+  #   env:
+  #     NODE_ENV: development
+  #
+  #   # 是否继承默认设置
+  #   inherit_defaults: true
+
+# 全局挂载（对所有 toolbox 生效）
+global_mounts:
+  # 系统时区（只读）
+  - type: bind
+    source: /etc/localtime
+    target: /etc/localtime
+    read_only: true
+
+  # 临时目录
+  - type: bind
+    source: /tmp
+    target: /tmp
+
+# 全局环境变量
+global_env:
+  # 默认编辑器
+  EDITOR: vim
+
+  # 时区
+  TZ: Asia/Shanghai
+
+# 允许的网络访问
+network:
+  # 使用 host 网络还是 bridge
+  mode: bridge
+
+  # 额外的 DNS 设置
+  dns: []
+
+# 资源限制（可选）
+resources:
+  # cpu: "2"
+  # memory: "4g"
+  # shm_size: "2g"
