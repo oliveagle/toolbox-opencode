@@ -99,7 +99,7 @@ case "\$cmd" in
         \$TOOLBOX_CMD rm "\$AGENT" "\$project"
         ;;
     list|ls)
-        \$TOOLBOX_CMD list | grep "toolbox-\$AGENT"
+        $TOOLBOX_CMD list | grep "agentbox-$AGENT"
         ;;
     *)
         echo "Unknown command: \$cmd"

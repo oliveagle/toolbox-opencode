@@ -226,6 +226,20 @@ get_agent_config() {
     fi
 }
 
+# Parse agent config for list of values (for multiple config_dirs)
+get_agent_config_list() {
+    local agent="$1"
+    local key="$2"
+    local config_file="$CONFIG_DIR/agents.yaml"
+    
+    if [[ -f "$config_file" ]]; then
+        grep -A 20 "^  ${agent}:" "$config_file" 2>/dev/null | \
+        grep "^    ${key}:" | sed "s/^    ${key}:\s*//" | tr -d '"' | tr -d ' '
+    else
+        echo ""
+    fi
+}
+
 # 获取全局配置
 get_global_config() {
     local key="$1"
@@ -373,15 +387,28 @@ generate_mount_args() {
     mkdir -p "$cache_dir"
     mount_args+=(--volume "${cache_dir}:/tmp/agent-cache")
     
-    # Agent 配置（必须挂载）
-    local agent_config_dir
-    agent_config_dir=$(get_agent_config "$agent" "config_dir")
-    if [[ -n "$agent_config_dir" ]]; then
-        # 展开 ~ 为实际路径
-        agent_config_dir="${agent_config_dir/#\~/$HOST_HOME}"
-        if [[ -d "$agent_config_dir" ]]; then
-            mount_args+=(--volume "${agent_config_dir}:${agent_config_dir}:rw")
-        fi
+    # Agent 配置（必须挂载）- 支持多个配置目录
+    # 挂载到容器内的正确位置（相对于隔离的 HOME）
+    local mount_agent_config
+    mount_agent_config=$(get_global_config "agent_config")
+    if [[ "${mount_agent_config:-true}" == "true" ]]; then
+        local agent_config_dirs
+        agent_config_dirs=$(get_agent_config_list "$agent" "config_dir")
+        
+        # 逐行处理每个配置目录
+        while IFS= read -r agent_config_dir; do
+            [[ -z "$agent_config_dir" ]] && continue
+            # 展开 ~ 为实际路径
+            agent_config_dir="${agent_config_dir/#\~/$HOST_HOME}"
+            if [[ -d "$agent_config_dir" ]]; then
+                # 获取配置目录的基础名（如 ~/.config/claude -> .config/claude）
+                local config_basename
+                config_basename=$(basename "$agent_config_dir")
+                # 挂载到容器内 HOME 下的对应位置
+                local container_config_path="${HOST_HOME}/.config/${config_basename}"
+                mount_args+=(--volume "${agent_config_dir}:${container_config_path}:rw")
+            fi
+        done <<< "$agent_config_dirs"
     fi
     
     # Git 配置
@@ -527,8 +554,44 @@ create_toolbox() {
     # 设置用户
     setup_container_user "$container_name" "$toolbox_home"
     
+    # 创建配置目录符号链接（让 agent 能找到配置）
+    create_config_symlinks "$container_name" "$agent"
+    
     log_success "Toolbox 创建成功: $container_name"
     log_info "进入: agent-toolbox enter $agent $project_name"
+}
+
+# 创建配置目录符号链接
+create_config_symlinks() {
+    local container_name="$1"
+    local agent="$2"
+    
+    # OCC agent 需要同时链接 opencode 和 claude 配置
+    local config_dirs=()
+    if [[ "$agent" == "occ" ]]; then
+        config_dirs=("opencode" "claude")
+    else
+        # 从配置中获取 config_dir
+        local config_dirs_raw
+        config_dirs_raw=$(get_agent_config_list "$agent" "config_dir")
+        while IFS= read -r dir; do
+            [[ -n "$dir" ]] && config_dirs+=$(basename "$dir")
+        done <<< "$config_dirs_raw"
+    fi
+    
+    for config_name in "${config_dirs[@]}"; do
+        [[ -z "$config_name" ]] && continue
+        local src_path="${HOST_HOME}/.config/${config_name}"
+        if [[ -d "$src_path" ]]; then
+            "$CONTAINER_ENGINE" exec "$container_name" bash -c "
+                mkdir -p ${toolbox_home}/.config
+                if [[ ! -e \"${toolbox_home}/.config/${config_name}\" && ! -L \"${toolbox_home}/.config/${config_name}\" ]]; then
+                    ln -s \"${src_path}\" \"${toolbox_home}/.config/${config_name}\"
+                    echo 'Linked ${toolbox_home}/.config/${config_name} -> ${src_path}'
+                fi
+            " 2>/dev/null || true
+        fi
+    done
 }
 
 # 设置容器用户
