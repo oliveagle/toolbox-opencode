@@ -103,10 +103,11 @@ check_path() {
 build_image() {
     log_info "构建 toolbox 镜像（这可能需要几分钟）..."
     
-    if "$INSTALL_DIR/opencode-toolbox" build; then
+    cd "$REPO_DIR"
+    if podman build -t localhost/opencode-toolbox:latest -f Containerfile .; then
         log_success "镜像构建成功"
     else
-        log_warn "镜像构建失败，稍后请手动运行: opencode-toolbox build"
+        log_warn "镜像构建失败，稍后请手动运行: cd $REPO_DIR && podman build -t localhost/opencode-toolbox:latest -f Containerfile ."
     fi
 }
 
