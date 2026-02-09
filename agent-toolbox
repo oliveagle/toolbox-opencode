@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # AI Agent Toolbox - 多 Agent 容器管理工具
-# 支持: opencode, claude-code, kilo, copilot, qwen, codebuddy, etc.
+# 支持: opencode, claude, kilo, copilot, qwen, codebuddy, occ
 #
 
 set -euo pipefail
@@ -146,6 +146,13 @@ agents:
     cmd: codebuddy
     config_dir: ~/.config/codebuddy
 
+  occ:
+    name: OCC
+    description: OpenCode + Claude Code combined
+    image: localhost/toolbox-agent-occ:latest
+    cmd: claude
+    config_dir: ~/.config/claude
+
 # 默认挂载设置
 mounts:
   # 项目代码（必须）
@@ -175,9 +182,37 @@ env:
   TZ: Asia/Shanghai
 EOF
     fi
+
+    # Generate SSH key pair for agentbox if not exists
+    setup_agentbox_ssh_keys
 }
 
-# 解析 agent 配置
+# Setup SSH keys for agentbox
+setup_agentbox_ssh_keys() {
+    local ssh_dir="${CONFIG_DIR}/ssh"
+    local private_key="${ssh_dir}/id_ed25519"
+    local public_key="${ssh_dir}/id_ed25519.pub"
+
+    if [[ ! -f "$private_key" ]]; then
+        mkdir -p "$ssh_dir"
+        chmod 700 "$ssh_dir"
+        ssh-keygen -t ed25519 -f "$private_key" -N "" -C "agentbox@$(hostname)"
+        chmod 600 "$private_key"
+        chmod 644 "$public_key"
+        log_success "SSH key generated: ${CONFIG_DIR}/ssh/"
+        log_info "Public key:"
+        cat "$public_key"
+        echo
+        log_info "Add the above public key to your GitHub/GitLab SSH keys"
+    fi
+}
+
+# Get agentbox SSH directory
+get_agentbox_ssh_dir() {
+    echo "${CONFIG_DIR}/ssh"
+}
+
+# Parse agent config
 get_agent_config() {
     local agent="$1"
     local key="$2"
@@ -227,7 +262,7 @@ build_agent_image() {
     
     if [[ -z "$agent" ]]; then
         log_error "需要指定 Agent 名称"
-        echo "可用 agents: opencode, claude-code, kilo, copilot, qwen, codebuddy"
+        echo "Available agents: opencode, claude, kilo, copilot, qwen, codebuddy, occ"
         return 1
     fi
     
@@ -357,12 +392,21 @@ generate_mount_args() {
         [[ -f "${HOST_HOME}/.git-credentials" ]] && mount_args+=(--volume "${HOST_HOME}/.git-credentials:${HOST_HOME}/.git-credentials:ro")
     fi
     
-    # SSH
+    # SSH keys
     local mount_ssh
     mount_ssh=$(get_global_config "ssh")
-    if [[ "${mount_ssh:-false}" == "true" && -d "${HOST_HOME}/.ssh" ]]; then
-        mount_args+=(--volume "${HOST_HOME}/.ssh:${HOST_HOME}/.ssh:ro")
-        [[ -S "${SSH_AUTH_SOCK:-}" ]] && mount_args+=(--volume "${SSH_AUTH_SOCK}:${SSH_AUTH_SOCK}:ro")
+    if [[ "${mount_ssh:-false}" == "true" ]]; then
+        # Mount agentbox SSH keys (from config directory)
+        local agentbox_ssh_dir
+        agentbox_ssh_dir=$(get_agentbox_ssh_dir)
+        if [[ -d "$agentbox_ssh_dir" ]]; then
+            mount_args+=(--volume "${agentbox_ssh_dir}:${HOST_HOME}/.ssh/agentbox:ro")
+        fi
+        # Also mount host SSH if exists
+        if [[ -d "${HOST_HOME}/.ssh" ]]; then
+            mount_args+=(--volume "${HOST_HOME}/.ssh:${HOST_HOME}/.ssh:ro")
+            [[ -S "${SSH_AUTH_SOCK:-}" ]] && mount_args+=(--volume "${SSH_AUTH_SOCK}:${SSH_AUTH_SOCK}:ro")
+        fi
     fi
     
     # Docker/Podman
@@ -717,21 +761,26 @@ AI Agent Toolbox - 多 Agent 容器管理工具
   agent-toolbox build-all                       构建所有 Agent 镜像
 
 Agents:
+  occ             OpenCode + Claude Code (Recommended)
   opencode        OpenCode AI
-  claude-code     Claude Code
+  claude          Claude Code
   kilo            Kilo AI
   copilot         GitHub Copilot
   qwen            Qwen AI
   codebuddy       CodeBuddy
 
 示例:
+  # 创建 OCC toolbox（推荐）
+  agent-toolbox create occ .
+  agent-toolbox enter occ .
+
   # 创建 OpenCode toolbox
   agent-toolbox create opencode .
   agent-toolbox enter opencode .
 
-  # 创建 Claude Code toolbox
-  agent-toolbox create claude-code myproject
-  agent-toolbox run claude-code myproject
+  # 创建 Claude toolbox
+  agent-toolbox create claude myproject
+  agent-toolbox run claude myproject
 
   # 构建所有镜像
   agent-toolbox build-all

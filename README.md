@@ -2,6 +2,14 @@
 
 Multi-AI Agent container management tool with shared base OS layer and isolated environments per agent.
 
+## Features
+
+- **Shared Base OS**: Ubuntu 24.04 + common dev tools
+- **Agent Isolation**: Each agent runs in its own container with isolated home
+- **SSH Keys**: Dedicated SSH key pair for agentbox in `~/.config/agent-toolbox/ssh/`
+- **Wrapper Scripts**: Shortcut commands for quick access
+- **OCC Agent**: Combined OpenCode + Claude Code agent
+
 ## Architecture
 
 ```
@@ -22,8 +30,9 @@ Multi-AI Agent container management tool with shared base OS layer and isolated 
 
 | Agent | Name | Installation |
 |-------|------|-------------|
+| `occ` | OpenCode + Claude | Combined agent (Recommended) |
 | `opencode` | OpenCode AI | `npm install -g opencode-ai` |
-| `claude-code` | Claude Code | `npm install -g @anthropic-ai/claude-code` |
+| `claude` | Claude Code | `npm install -g @anthropic-ai/claude-code` |
 | `kilo` | Kilo AI | `npm install -g kilo-ai` |
 | `copilot` | GitHub Copilot | `gh extension install github/copilot` |
 | `qwen` | Qwen AI | `pip3 install qwen-code` |
@@ -60,6 +69,7 @@ After installation, shortcut commands are generated for each agent:
 
 ```bash
 # Available shortcuts:
+agent-toolbox-occ         # OpenCode + Claude (Recommended)
 agent-toolbox-opencode     # OpenCode
 agent-toolbox-claude      # Claude Code
 agent-toolbox-kilo        # Kilo
@@ -75,7 +85,7 @@ agent-toolbox-codebuddy    # CodeBuddy
 agent-toolbox-opencode .
 
 # Create Claude Code toolbox for project
-agent-toolbox-claude-code create myproject
+agent-toolbox-claude create myproject
 
 # Run command in Kilo toolbox
 agent-toolbox-kilo run . npm test
@@ -108,18 +118,24 @@ agent-toolbox-opencode --help
 ## Usage Examples
 
 ```bash
+# OCC (OpenCode + Claude) examples
+cd ~/project1
+agent-toolbox create occ .
+agent-toolbox enter occ .
+
 # OpenCode examples
 cd ~/project1
 agent-toolbox create opencode .
 agent-toolbox enter opencode .
 
 # Claude Code examples
-agent-toolbox create claude-code project2
-agent-toolbox run claude-code project2
+agent-toolbox create claude project2
+agent-toolbox run claude project2
 
 # Run commands directly
+agent-toolbox run occ . git status
 agent-toolbox run opencode . git status
-agent-toolbox run claude-code myproject npm test
+agent-toolbox run claude myproject npm test
 
 # Or use shortcut commands
 agent-toolbox-opencode .          # Enter current project
@@ -132,11 +148,14 @@ agent-toolbox-qwen                # Run Qwen in default project
 ```
 ~/.local/share/agent-toolbox/
 ├── repo/                    # Utility scripts
+├── occ/
+│   ├── project1/           # OCC project1 home
+│   └── project2/           # OCC project2 home
 ├── opencode/
 │   ├── project1/           # OpenCode project1 home
 │   └── project2/           # OpenCode project2 home
-├── claude-code/
-│   └── myproject/          # Claude Code myproject home
+├── claude/
+│   └── myproject/          # Claude myproject home
 └── kilo/
     └── another/            # Kilo another home
 ```
@@ -146,20 +165,41 @@ agent-toolbox-qwen                # Run Qwen in default project
 Config file: `~/.config/agent-toolbox/agents.yaml`
 
 ```yaml
-default_agent: opencode
+default_agent: occ
 
 agents:
-  opencode:
-    name: OpenCode
-    image: localhost/toolbox-agent-opencode:latest
-    cmd: opencode
-    config_dir: ~/.config/opencode
+  occ:
+    name: OpenCode + Claude
+    image: localhost/toolbox-agent-occ:latest
+    cmd: claude
+    config_dir: ~/.config/claude
 
 mounts:
   agent_config: true   # Mount agent config
   gitconfig: true      # Mount git config
-  ssh: false          # Don't mount SSH (optional)
-  docker: false       # Don't mount Docker (optional)
+  ssh: true            # Mount SSH keys
+  docker: false        # Don't mount Docker
+```
+
+## SSH Keys
+
+Agentbox generates a dedicated SSH key pair for git operations:
+
+```bash
+# Keys are stored at:
+~/.config/agent-toolbox/ssh/
+├── id_ed25519         # Private key
+└── id_ed25519.pub     # Public key
+```
+
+**Setup:**
+```bash
+# Keys are auto-generated on first run
+# Add public key to GitHub/GitLab:
+cat ~/.config/agent-toolbox/ssh/id_ed25519.pub
+
+# Enable SSH mounting in config (default: disabled)
+ssh: true
 ```
 
 ## Image Layers
@@ -171,9 +211,31 @@ Build order:
 ```bash
 agent-toolbox build-all
 # Or build individually
+agent-toolbox build occ
 agent-toolbox build opencode
-agent-toolbox build claude-code
+agent-toolbox build claude
 ```
+
+## OCC Agent (OpenCode + Claude)
+
+The `occ` agent combines OpenCode and Claude Code in a single container:
+
+```bash
+# Create OCC toolbox
+agent-toolbox create occ .
+
+# Enter and use Claude
+agent-toolbox enter occ .
+⬢ occ:~$ claude
+
+# Or use OpenCode
+⬢ occ:~$ opencode
+```
+
+**Features:**
+- Both Claude Code and OpenCode pre-installed
+- Shared configuration and cache
+- Use `claude` or `opencode` commands as needed
 
 ## Adding New Agents
 
@@ -200,7 +262,7 @@ agent-toolbox build myagent
 4. Generate wrapper script:
 ```bash
 # Add your agent to AGENTS variable
-AGENTS="opencode claude-code kilo copilot qwen codebuddy myagent" \
+AGENTS="occ opencode claude kilo copilot qwen codebuddy myagent" \
     bash lib/generate-wrappers.sh
 ```
 

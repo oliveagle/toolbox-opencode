@@ -4,7 +4,7 @@
 set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
-AGENTS="${AGENTS:-opencode claude kilo copilot qwen codebuddy}"
+AGENTS="${AGENTS:-opencode claude kilo copilot qwen codebuddy occ}"
 
 generate_wrapper() {
     local agent="$1"
