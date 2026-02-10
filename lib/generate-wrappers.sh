@@ -39,29 +39,29 @@ generate_wrapper() {
 set -euo pipefail
 
 AGENT="${agent}"
-TOOLBOX_CMD="agentbox"
+AGENTBOX_CMD="agentbox"
 
 show_help() {
   cat << 'HELP'
   Command: ${wrapper_name}
 
 Usage:
-  ${wrapper_name} create [project]     Create toolbox
-  ${wrapper_name} enter [project]     Enter toolbox (default)
+  ${wrapper_name} create [project]     Create agentbox
+  ${wrapper_name} enter [project]     Enter agentbox (default)
   ${wrapper_name} run [project] [cmd]  Run command
   ${wrapper_name} build               Build image
-  ${wrapper_name} rm [project]        Delete toolbox
-  ${wrapper_name} kill [project]      Stop toolbox
-  ${wrapper_name} list                List toolboxes
+  ${wrapper_name} rm [project]        Delete agentbox
+  ${wrapper_name} kill [project]      Stop agentbox
+  ${wrapper_name} list                List agentboxes
 
 Examples:
   ${wrapper_name}              # Enter default project
   ${wrapper_name} .            # Enter current directory
   ${wrapper_name} myproject    # Enter specified project
-  ${wrapper_name} create .     # Create toolbox for current dir
+  ${wrapper_name} create .     # Create agentbox for current dir
   ${wrapper_name} run .        # Run agent (default command)
-  ${wrapper_name} run . git status   # Run git status in toolbox
-  ${wrapper_name} kill .       # Stop toolbox
+  ${wrapper_name} run . git status   # Run git status in agentbox
+  ${wrapper_name} kill .       # Stop agentbox
 
 HELP
 }
@@ -102,29 +102,29 @@ fi
 # Execute command
 case "\$cmd" in
     create)
-        \$TOOLBOX_CMD create "\$AGENT" "\$project"
+        \$AGENTBOX_CMD create "\$AGENT" "\$project"
         ;;
     enter)
-        \$TOOLBOX_CMD enter "\$AGENT" "\$project"
+        \$AGENTBOX_CMD enter "\$AGENT" "\$project"
         ;;
     run)
         if [[ \${#args[@]} -eq 0 ]]; then
-            \$TOOLBOX_CMD run "\$AGENT" "\$project"
+            \$AGENTBOX_CMD run "\$AGENT" "\$project"
         else
-            \$TOOLBOX_CMD run "\$AGENT" "\$project" "\${args[@]}"
+            \$AGENTBOX_CMD run "\$AGENT" "\$project" "\${args[@]}"
         fi
         ;;
     build)
-        \$TOOLBOX_CMD build "\$AGENT"
+        \$AGENTBOX_CMD build "\$AGENT"
         ;;
     rm|remove)
-        \$TOOLBOX_CMD rm "\$AGENT" "\$project"
+        \$AGENTBOX_CMD rm "\$AGENT" "\$project"
         ;;
     kill|stop)
-        \$TOOLBOX_CMD kill "\$AGENT" "\$project"
+        \$AGENTBOX_CMD kill "\$AGENT" "\$project"
         ;;
     list|ls)
-        \$TOOLBOX_CMD list | grep "agentbox-\$AGENT"
+        \$AGENTBOX_CMD list | grep "agentbox-\$AGENT"
         ;;
     *)
         echo "Unknown command: \$cmd"
@@ -165,10 +165,10 @@ main() {
     echo "  occ                              # Shortcut for agentbox-occ"
     echo
     echo "Examples:"
-    echo "  occ .                            # Enter occ toolbox (short form)"
-    echo "  agentbox-occ .              # Enter occ toolbox (full form)"
-    echo "  occ create .                     # Create occ toolbox"
-    echo "  occ run . git status             # Run git status in occ toolbox"
+echo "  occ .                            # Enter occ agentbox (short form)"
+echo "  agentbox-occ .              # Enter occ agentbox (full form)"
+echo "  occ create .                     # Create occ agentbox"
+echo "  occ run . git status             # Run git status in occ agentbox"
 }
 
 main "$@"

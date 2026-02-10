@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # 基础配置
-TOOLBOX_BASE_IMAGE="${TOOLBOX_BASE_IMAGE:-ghcr.io/oliveagle/agentbox/toolbox-base:latest}"
+AGENTBOX_BASE_IMAGE="${AGENTBOX_BASE_IMAGE:-ghcr.io/oliveagle/agentbox/agentbox-base:latest}"
 CONTAINER_ENGINE="${CONTAINER_ENGINE:-podman}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/share/agentbox}"
 CONFIG_DIR="${HOME}/.config/agentbox"
@@ -107,49 +107,49 @@ agents:
   opencode:
     name: OpenCode
     description: OpenCode AI coding agent
-    image: localhost/toolbox-agent-opencode:latest
+    image: localhost/agentbox-opencode:latest
     cmd: opencode
     config_dir: ~/.config/opencode
     
   claude-code:
     name: Claude Code
     description: Anthropic Claude Code
-    image: localhost/toolbox-agent-claude-code:latest
+    image: localhost/agentbox-claude-code:latest
     cmd: claude
     config_dir: ~/.config/claude
     
   kilo:
     name: Kilo
     description: Kilo AI coding agent
-    image: localhost/toolbox-agent-kilo:latest
+    image: localhost/agentbox-kilo:latest
     cmd: kilo
     config_dir: ~/.config/kilo
     
   copilot:
     name: GitHub Copilot
     description: GitHub Copilot CLI
-    image: localhost/toolbox-agent-copilot:latest
+    image: localhost/agentbox-copilot:latest
     cmd: "gh copilot"
     config_dir: ~/.config/gh
     
   qwen:
     name: Qwen
     description: Qwen AI coding agent
-    image: localhost/toolbox-agent-qwen:latest
+    image: localhost/agentbox-qwen:latest
     cmd: qwen
     config_dir: ~/.config/qwen
     
   codebuddy:
     name: CodeBuddy
     description: CodeBuddy AI agent
-    image: localhost/toolbox-agent-codebuddy:latest
+    image: localhost/agentbox-codebuddy:latest
     cmd: codebuddy
     config_dir: ~/.config/codebuddy
 
   occ:
     name: OCC
     description: OpenCode + Claude Code combined
-    image: localhost/toolbox-agent-occ:latest
+    image: localhost/agentbox-occ:latest
     cmd: claude
     config_dir: ~/.config/claude
 
@@ -254,7 +254,7 @@ get_global_config() {
 
 # 构建基础镜像
 build_base_image() {
-    log_info "构建基础镜像 toolbox-base..."
+    log_info "构建基础镜像 agentbox-base..."
 
     local script_dir
     script_dir=$(get_script_dir)
@@ -496,8 +496,8 @@ generate_mount_args() {
     printf '%s\n' "${mount_args[@]}"
 }
 
-# 创建 toolbox
-create_toolbox() {
+# 创建 agentbox
+create_agentbox() {
     local agent="${1:-}"
     local project_name="${2:-}"
     
@@ -516,7 +516,7 @@ create_toolbox() {
     local image_name
     image_name=$(generate_image_name "$agent")
     
-    log_agent "$agent" "创建 toolbox: $container_name"
+    log_agent "$agent" "创建 agentbox: $container_name"
     
     # 检查容器是否已存在
     if "$CONTAINER_ENGINE" ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
@@ -544,9 +544,9 @@ create_toolbox() {
     local mount_args
     mount_args=$(generate_mount_args "$agent" "$(pwd)")
     
-    # 准备 toolbox home
-    local toolbox_home="${HOST_HOME}/.local/share/agentbox/${agent}/${project_name}"
-    mkdir -p "$toolbox_home"
+    # 准备 agentbox home
+    local agentbox_home="${HOST_HOME}/.local/share/agentbox/${agent}/${project_name}"
+    mkdir -p "$agentbox_home"
     
     # 引擎参数
     local engine_args=()
@@ -566,10 +566,10 @@ create_toolbox() {
         --env "HOST_USER=${HOST_USER}"
         --env "HOST_UID=${HOST_UID}"
         --env "HOST_GID=${HOST_GID}"
-        --env "HOME=${toolbox_home}"
-        --env "TOOLBOX_HOME=${toolbox_home}"
+        --env "HOME=${agentbox_home}"
+        --env "AGENTBOX_HOME=${agentbox_home}"
         --env "AGENT=${agent}"
-        --volume "${toolbox_home}:${toolbox_home}:rw"
+        --volume "${agentbox_home}:${agentbox_home}:rw"
         --env "EDITOR=vim"
         --env "TZ=Asia/Shanghai"
         --network bridge
@@ -599,19 +599,19 @@ create_toolbox() {
     # 等待 entrypoint 完成初始化
     sleep 1
 
-    # 修复 /home/oliveagle 目录的所有权（可能由 root 创建）
+    # 修复 /home/agentboxuser 目录的所有权（可能由 root 创建）
     # 使用 root 在容器内执行 chown
     "$CONTAINER_ENGINE" exec --user root "$container_name" bash -c "
-        if [[ -d /home/oliveagle ]]; then
-            chown -R ${HOST_UID}:${HOST_GID} /home/oliveagle
-            echo '[toolbox] Fixed /home/oliveagle ownership'
+        if [[ -d /home/agentboxuser ]]; then
+            chown -R ${HOST_UID}:${HOST_GID} /home/agentboxuser
+            echo '[agentbox] Fixed /home/agentboxuser ownership'
         fi
     " 2>/dev/null || true
 
     # 创建配置目录符号链接（让 agent 能找到配置）
-    create_config_symlinks "$container_name" "$agent" "$toolbox_home"
+    create_config_symlinks "$container_name" "$agent" "$agentbox_home"
     
-    log_success "Toolbox 创建成功: $container_name"
+    log_success "Agentbox 创建成功: $container_name"
     log_info "进入: agentbox enter $agent $project_name"
 }
 
@@ -619,7 +619,7 @@ create_toolbox() {
 create_config_symlinks() {
     local container_name="$1"
     local agent="$2"
-    local toolbox_home="$3"
+    local agentbox_home="$3"
 
     get_user_info
 
@@ -641,10 +641,10 @@ create_config_symlinks() {
         local src_path="${HOST_HOME}/.config/${config_name}"
         if [[ -d "$src_path" ]]; then
             "$CONTAINER_ENGINE" exec "$container_name" bash -c "
-                mkdir -p ${toolbox_home}/.config
-                if [[ ! -e \"${toolbox_home}/.config/${config_name}\" && ! -L \"${toolbox_home}/.config/${config_name}\" ]]; then
-                    ln -s \"${src_path}\" \"${toolbox_home}/.config/${config_name}\"
-                    echo 'Linked ${toolbox_home}/.config/${config_name} -> ${src_path}'
+                mkdir -p ${agentbox_home}/.config
+                if [[ ! -e \"${agentbox_home}/.config/${config_name}\" && ! -L \"${agentbox_home}/.config/${config_name}\" ]]; then
+                    ln -s \"${src_path}\" \"${agentbox_home}/.config/${config_name}\"
+                    echo 'Linked ${agentbox_home}/.config/${config_name} -> ${src_path}'
                 fi
             " 2>/dev/null || true
         fi
@@ -654,7 +654,7 @@ create_config_symlinks() {
 # 设置容器用户
 setup_container_user() {
     local container_name="$1"
-    local toolbox_home="$2"
+    local agentbox_home="$2"
     
     get_user_info
     
@@ -662,15 +662,15 @@ setup_container_user() {
         getent group ${HOST_GID} >/dev/null 2>&1 || groupadd -g ${HOST_GID} ${HOST_USER}
         id -u ${HOST_USER} >/dev/null 2>&1 || useradd -m -u ${HOST_UID} -g ${HOST_GID} -s /bin/bash ${HOST_USER}
         usermod -aG sudo ${HOST_USER} 2>/dev/null || true
-        echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/toolbox
-        chmod 440 /etc/sudoers.d/toolbox
-        mkdir -p ${toolbox_home}
-        chown -R ${HOST_UID}:${HOST_GID} ${toolbox_home}
+        echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/agentbox
+        chmod 440 /etc/sudoers.d/agentbox
+        mkdir -p ${agentbox_home}
+        chown -R ${HOST_UID}:${HOST_GID} ${agentbox_home}
     " 2>/dev/null || true
 }
 
-# 进入 toolbox
-enter_toolbox() {
+# 进入 agentbox
+enter_agentbox() {
     local agent="${1:-}"
     local project_name="${2:-}"
     
@@ -691,7 +691,7 @@ enter_toolbox() {
         read -p "现在创建? [Y/n] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            create_toolbox "$agent" "$project_name"
+            create_agentbox "$agent" "$project_name"
         else
             exit 1
         fi
@@ -705,31 +705,31 @@ enter_toolbox() {
     
     get_user_info
     
-    local toolbox_home="${HOST_HOME}/.local/share/agentbox/${agent}/${project_name}"
+    local agentbox_home="${HOST_HOME}/.local/share/agentbox/${agent}/${project_name}"
     local agent_name
     agent_name=$(get_agent_config "$agent" "name")
     
-    log_agent "$agent" "进入 toolbox: $container_name"
+    log_agent "$agent" "进入 agentbox: $container_name"
     echo -e "${GREEN}⬢${NC} ${CYAN}${agent_name:-$agent}${NC} 模式"
     echo
     
     exec "$CONTAINER_ENGINE" exec -it \
         --user "$HOST_UID:$HOST_GID" \
-        --env "HOME=$toolbox_home" \
-        --env "TOOLBOX_HOME=$toolbox_home" \
+        --env "HOME=$agentbox_home" \
+        --env "AGENTBOX_HOME=$agentbox_home" \
         "$container_name" \
         /bin/bash -c "
-            export PATH=\"${toolbox_home}/.local/bin:/usr/local/bin:/usr/bin:/bin\"
+            export PATH=\"${agentbox_home}/.local/bin:/usr/local/bin:/usr/bin:/bin\"
             export PS1='\\[\\033[0;32m\\]⬢[\\033[0m\\] \\[\\033[1;36m\\]${agent}\\[\\033[0m\\]:\\[\\033[0;34m\\]\\w\\[\\033[0m\\]\\$ '
-            cd '$(pwd)' 2>/dev/null || cd '$toolbox_home'
+            cd '$(pwd)' 2>/dev/null || cd '$agentbox_home'
             
             echo -e '${GREEN}AI Agent Toolbox Ready!${NC}'
             echo -e '${BLUE}Agent: ${agent}${NC}'
-            echo -e '${BLUE}隔离 home: ${toolbox_home}${NC}'
+            echo -e '${BLUE}隔离 home: ${agentbox_home}${NC}'
             echo ''
             
             exec /bin/bash --rcfile <(echo '
-                export PATH=\"${toolbox_home}/.local/bin:/usr/local/bin:/usr/bin:/bin\"
+                export PATH=\"${agentbox_home}/.local/bin:/usr/local/bin:/usr/bin:/bin\"
                 export PS1=\"\\[\\033[0;32m\\]⬢[\\033[0m\\] \\[\\033[1;36m\\]${agent}\\[\\033[0m\\]:\\[\\033[0;34m\\]\\w\\[\\033[0m\\]\\$ \"
                 alias ll=\"ls -la\"
             ')
@@ -737,7 +737,7 @@ enter_toolbox() {
 }
 
 # 运行命令
-run_toolbox() {
+run_agentbox() {
     local agent="${1:-}"
     shift || true
     
@@ -776,7 +776,7 @@ run_toolbox() {
     
     get_user_info
     
-    local toolbox_home="${HOST_HOME}/.local/share/agentbox/${agent}/${project_name}"
+    local agentbox_home="${HOST_HOME}/.local/share/agentbox/${agent}/${project_name}"
     
     # 如果没有命令，使用 agent 默认命令
     if [[ ${#cmd_args[@]} -eq 0 ]]; then
@@ -789,14 +789,14 @@ run_toolbox() {
     
     "$CONTAINER_ENGINE" exec \
         --user "$HOST_UID:$HOST_GID" \
-        --env "HOME=$toolbox_home" \
-        --env "PATH=${toolbox_home}/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+        --env "HOME=$agentbox_home" \
+        --env "PATH=${agentbox_home}/.local/bin:/usr/local/bin:/usr/bin:/bin" \
         "$container_name" \
         /bin/bash -c "cd '\$(pwd)' 2>/dev/null || true; exec ${cmd_args[*]}"
 }
 
-# 列出所有 toolbox
-list_toolboxes() {
+# 列出所有 agentbox
+list_agentboxes() {
     get_user_info
     log_info "AI Agent Toolbox 容器:"
     echo
@@ -821,22 +821,22 @@ list_toolboxes() {
             printf "%-30s %-10s %-35s %-15s\n" "$project" "$agent" "$name" "$simple_status"
         done <<< "$containers"
     else
-        echo "  没有 toolbox 容器"
+        echo "  没有 agentbox 容器"
     fi
     echo
 
     # 显示存储使用情况
-    local toolbox_base="${HOST_HOME}/.local/share/agentbox"
-    if [[ -d "$toolbox_base" ]]; then
+    local agentbox_base="${HOST_HOME}/.local/share/agentbox"
+    if [[ -d "$agentbox_base" ]]; then
         log_info "存储使用情况:"
-        du -sh "${toolbox_base}"/* 2>/dev/null | while read -r size path; do
+        du -sh "${agentbox_base}"/* 2>/dev/null | while read -r size path; do
             echo "  $(basename "$path"): $size"
         done
     fi
 }
 
-# 删除 toolbox
-remove_toolbox() {
+# 删除 agentbox
+remove_agentbox() {
     get_user_info
 
     local agent="${1:-}"
@@ -853,7 +853,7 @@ remove_toolbox() {
     local container_name
     container_name=$(generate_container_name "$agent" "$project_name")
 
-    log_warn "Removing toolbox: $container_name"
+    log_warn "Removing agentbox: $container_name"
 
     if "$CONTAINER_ENGINE" ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
         "$CONTAINER_ENGINE" rm -f "$container_name" 2>/dev/null
@@ -862,19 +862,19 @@ remove_toolbox() {
 
     # Ask to delete home directory
     local host_home="${HOST_HOME:-$(getent passwd "${HOST_USER:-$USER}" | cut -d: -f6)}"
-    local toolbox_home="${host_home}/.local/share/agentbox/${agent}/${project_name}"
-    if [[ -d "$toolbox_home" ]]; then
+    local agentbox_home="${host_home}/.local/share/agentbox/${agent}/${project_name}"
+    if [[ -d "$agentbox_home" ]]; then
         read -p "Delete isolated home directory? [y/N] " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$toolbox_home"
+            rm -rf "$agentbox_home"
             log_success "Isolated home removed"
         fi
     fi
 }
 
-# 停止 toolbox
-kill_toolbox() {
+# 停止 agentbox
+kill_agentbox() {
     local agent="${1:-}"
     local project_name="${2:-}"
 
@@ -889,7 +889,7 @@ kill_toolbox() {
     local container_name
     container_name=$(generate_container_name "$agent" "$project_name")
 
-    log_info "Stopping toolbox: $container_name"
+    log_info "Stopping agentbox: $container_name"
 
     if "$CONTAINER_ENGINE" ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
         "$CONTAINER_ENGINE" stop "$container_name" 2>/dev/null
@@ -906,12 +906,12 @@ AI Agent Toolbox - 多 Agent 容器管理工具
 
 用法:
   agentbox agents                          列出可用 Agents
-  agentbox create <agent> [project]        创建 toolbox
-  agentbox enter <agent> [project]         进入 toolbox
-  agentbox run <agent> [project] [cmd]     运行命令
-  agentbox list                            列出所有 toolbox
-  agentbox kill <agent> [project]          停止 toolbox
-  agentbox rm <agent> [project]            删除 toolbox
+agentbox create <agent> [project]        创建 agentbox
+agentbox enter <agent> [project]         进入 agentbox
+agentbox run <agent> [project] [cmd]     运行命令
+agentbox list                            列出所有 agentbox
+agentbox kill <agent> [project]          停止 agentbox
+agentbox rm <agent> [project]            删除 agentbox
   agentbox build <agent>                   构建 Agent 镜像
   agentbox build-all                       构建所有 Agent 镜像
 
@@ -925,15 +925,15 @@ Agents:
   codebuddy       CodeBuddy
 
 示例:
-  # 创建 OCC toolbox（推荐）
+  # 创建 OCC agentbox（推荐）
   agentbox create occ .
   agentbox enter occ .
 
-  # 创建 OpenCode toolbox
+  # 创建 OpenCode agentbox
   agentbox create opencode .
   agentbox enter opencode .
 
-  # 创建 Claude toolbox
+  # 创建 Claude agentbox
   agentbox create claude myproject
   agentbox run claude myproject
 
@@ -959,22 +959,22 @@ main() {
             list_agents
             ;;
         create)
-            create_toolbox "$@"
+            create_agentbox "$@"
             ;;
         enter)
-            enter_toolbox "$@"
+            enter_agentbox "$@"
             ;;
         run)
-            run_toolbox "$@"
+            run_agentbox "$@"
             ;;
         list|ls)
-            list_toolboxes
+            list_agentboxes
             ;;
         rm|remove)
-            remove_toolbox "$@"
+            remove_agentbox "$@"
             ;;
         kill|stop)
-            kill_toolbox "$@"
+            kill_agentbox "$@"
             ;;
         build)
             build_agent_image "$@"

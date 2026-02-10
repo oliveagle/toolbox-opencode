@@ -66,15 +66,15 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
 # Install opencode
 RUN npm install -g opencode-ai
 
-# Create toolbox user (matching host user will be created at runtime)
-RUN useradd -m -s /bin/bash -G sudo toolboxuser && \
-    echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/toolbox-sudo && \
-    chmod 0440 /etc/sudoers.d/toolbox-sudo
+# Create agentbox user (matching host user will be created at runtime)
+RUN useradd -m -s /bin/bash -G sudo agentboxuser && \
+    echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/agentbox-sudo && \
+    chmod 0440 /etc/sudoers.d/agentbox-sudo
 
 # Ensure /home is empty (required for Toolbx compatibility)
 RUN rm -rf /home/*
 
-# Create required directories for toolbox
+# Create required directories for agentbox
 RUN mkdir -p /usr/share/empty && \
     mkdir -p /etc/krb5.conf.d && \
     mkdir -p /etc/ld.so.conf.d && \
@@ -83,12 +83,12 @@ RUN mkdir -p /usr/share/empty && \
     mkdir -p /etc/profile.d
 
 # Set up VTE support for terminal emulators
-RUN echo 'if [ -f /etc/profile.d/vte.sh ]; then . /etc/profile.d/vte.sh; fi' > /etc/profile.d/vte-toolbox.sh
+RUN echo 'if [ -f /etc/profile.d/vte.sh ]; then . /etc/profile.d/vte.sh; fi' > /etc/profile.d/vte-agentbox.sh
 
 # Toolbox environment marker
 ENV TOOLBOX_PATH=/run/.toolboxenv
 
-# Entry point will be set by toolbox at runtime
+# Entry point will be set by agentbox at runtime
 # DO NOT set ENTRYPOINT here (per Toolbx requirements)
 
 # Default command

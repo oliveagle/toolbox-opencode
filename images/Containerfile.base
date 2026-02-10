@@ -87,11 +87,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# 删除默认的 ubuntu 用户，创建 toolboxuser 用户 (UID 1000)
+# 删除默认的 ubuntu 用户，创建 agentboxuser 用户 (UID 1000)
 RUN userdel -r ubuntu 2>/dev/null || true && \
-    useradd -m -u 1000 -s /bin/bash -G sudo toolboxuser && \
-    echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/toolbox && \
-    chmod 0440 /etc/sudoers.d/toolbox
+    useradd -m -u 1000 -s /bin/bash -G sudo agentboxuser && \
+    echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/agentbox && \
+    chmod 0440 /etc/sudoers.d/agentbox
 
 # 创建必要的目录
 RUN mkdir -p /usr/share/empty && \
@@ -106,9 +106,9 @@ RUN mkdir -p /usr/share/empty && \
 RUN rm -rf /home/*
 
 # 复制并设置 entrypoint 脚本
-COPY lib/toolbox-entrypoint.sh /usr/local/bin/toolbox-entrypoint.sh
-RUN chmod +x /usr/local/bin/toolbox-entrypoint.sh
+COPY lib/agentbox-entrypoint.sh /usr/local/bin/agentbox-entrypoint.sh
+RUN chmod +x /usr/local/bin/agentbox-entrypoint.sh
 
 # 使用 entrypoint 来初始化权限
-ENTRYPOINT ["/usr/local/bin/toolbox-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/agentbox-entrypoint.sh"]
 CMD ["sleep", "infinity"]

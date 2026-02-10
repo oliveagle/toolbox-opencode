@@ -62,7 +62,7 @@ clone_repo() {
     log_success "下载完成"
 }
 
-install_toolbox() {
+install_agentbox() {
     log_info "Installing agentbox..."
 
     mkdir -p "$INSTALL_DIR"
@@ -140,8 +140,8 @@ show_help() {
     echo "  agentbox enter occ ."
     echo
     echo "Or use shortcut commands:"
-    echo "  occ .                           # Enter occ toolbox (short form)"
-    echo "  occ create .                    # Create occ toolbox"
+echo "  occ .                           # Enter occ agentbox (short form)"
+echo "  occ create .                    # Create occ agentbox"
     echo "  agentbox-occ .             # Full form"
     echo
 }
@@ -154,7 +154,7 @@ main() {
     
     check_dependencies
     clone_repo
-    install_toolbox
+    install_agentbox
     generate_wrappers
     check_path
     

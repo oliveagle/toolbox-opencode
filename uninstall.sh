@@ -32,18 +32,18 @@ detect_engine() {
 
 CONTAINER_ENGINE=$(detect_engine)
 
-# 停止并删除所有 toolbox 容器
+# 停止并删除所有 agentbox 容器
 remove_containers() {
-    log_info "查找并删除所有 toolbox 容器..."
-    
+    log_info "查找并删除所有 agentbox 容器..."
+
     local containers
-    containers=$("$CONTAINER_ENGINE" ps -a --filter "name=toolbox-" --format "{{.Names}}" 2>/dev/null || true)
-    
+    containers=$("$CONTAINER_ENGINE" ps -a --filter "name=agentbox-" --format "{{.Names}}" 2>/dev/null || true)
+
     if [[ -n "$containers" ]]; then
         echo "找到以下容器:"
         echo "$containers"
         echo
-        read -p "是否删除所有 toolbox 容器? [y/N] " -n 1 -r
+        read -p "是否删除所有 agentbox 容器? [y/N] " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "$containers" | while read -r container; do
@@ -53,22 +53,22 @@ remove_containers() {
             log_success "容器已删除"
         fi
     else
-        log_info "没有找到 toolbox 容器"
+        log_info "没有找到 agentbox 容器"
     fi
 }
 
 # 删除镜像
 remove_images() {
-    log_info "查找 toolbox 镜像..."
-    
+    log_info "查找 agentbox 镜像..."
+
     local images
     images=$("$CONTAINER_ENGINE" images --format "{{.Repository}}:{{.Tag}}" | grep "^localhost/agentbox-" || true)
-    
+
     if [[ -n "$images" ]]; then
         echo "找到以下镜像:"
         echo "$images"
         echo
-        read -p "是否删除所有 toolbox 镜像? [y/N] " -n 1 -r
+        read -p "是否删除所有 agentbox 镜像? [y/N] " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "$images" | while read -r image; do
@@ -78,7 +78,7 @@ remove_images() {
             log_success "镜像已删除"
         fi
     else
-        log_info "没有找到 toolbox 镜像"
+        log_info "没有找到 agentbox 镜像"
     fi
 }
 
@@ -143,8 +143,8 @@ main() {
     echo
     
     echo "这将卸载以下内容:"
-    echo "  - 所有 toolbox 容器"
-    echo "  - 所有 toolbox 镜像"
+echo "  - 所有 agentbox 容器"
+echo "  - 所有 agentbox 镜像"
     echo "  - 主脚本 (agentbox)"
     echo "  - 快捷命令 (agentbox-*)"
     echo "  - 配置和数据文件"

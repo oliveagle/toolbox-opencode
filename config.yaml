@@ -4,7 +4,7 @@
 # - 默认不挂载整个 home 目录
 # - 只挂载显式配置的项目目录
 # - SSH/Git 配置可选挂载
-# - 提供独立的 toolbox home 目录
+# - 提供独立的 agentbox home 目录
 
 # 默认镜像
 default_image: localhost/agentbox:latest
@@ -12,7 +12,7 @@ default_image: localhost/agentbox:latest
 # 容器引擎: docker, podman, auto
 engine: podman
 
-# toolbox 默认设置
+# agentbox 默认设置
 defaults:
   # 是否挂载 SSH keys (默认 false)
   mount_ssh: true
@@ -29,8 +29,8 @@ defaults:
   # X11/Wayland 支持 (默认 true)
   mount_display: true
 
-  # toolbox 在容器内的 home 目录
-  # 默认是独立的 /home/toolbox
+  # agentbox 在容器内的 home 目录
+  # 默认是独立的 /home/agentboxuser
   # 如果设置为 "host"，则使用主机的 home 目录（不推荐）
   home_mode: isolated
 
@@ -56,7 +56,7 @@ projects:
   #   # 是否继承默认设置
   #   inherit_defaults: true
 
-# 全局挂载（对所有 toolbox 生效）
+# 全局挂载（对所有 agentbox 容器生效）
 global_mounts:
   # 系统时区（只读）
   - type: bind

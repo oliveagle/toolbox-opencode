@@ -1,4 +1,4 @@
-# AI Agent Toolbox
+# Agentbox
 
 Multi-AI Agent container management tool with shared base OS layer and isolated environments per agent.
 
@@ -14,7 +14,7 @@ Multi-AI Agent container management tool with shared base OS layer and isolated 
 
 ```
 ┌─────────────────────────────────────────┐
-│          Base OS Layer (toolbox-base)        │
+│          Base OS Layer (agentbox-base)       │
 │  Ubuntu 24.04 + Dev Tools + Node/Python/Go  │
 └─────────────────────────────────────────┘
                    │
@@ -50,14 +50,14 @@ curl -fsSL https://raw.githubusercontent.com/oliveagle/agentbox/main/install.sh 
 # 1. List available agents
 agentbox agents
 
-# 2. Create OpenCode toolbox
+# 2. Create OpenCode agentbox
 agentbox create opencode .
 
-# 3. Enter toolbox
+# 3. Enter agentbox
 agentbox enter opencode .
 ⬢ opencode:~$ opencode
 
-# 4. Create Claude Code toolbox (another project)
+# 4. Create Claude Code agentbox (another project)
 agentbox create claude-code another-project
 agentbox enter claude-code another-project
 ⬢ claude-code:~$ claude
@@ -81,16 +81,16 @@ agentbox-codebuddy    # CodeBuddy
 ### Shortcut Usage Examples
 
 ```bash
-# Enter current directory's OpenCode toolbox
+# Enter current directory's OpenCode agentbox
 agentbox-opencode .
 
-# Create Claude Code toolbox for project
+# Create Claude Code agentbox for project
 agentbox-claude create myproject
 
-# Run command in Kilo toolbox
+# Run command in Kilo agentbox
 agentbox-kilo run . npm test
 
-# List all Kilo toolboxes
+# List all Kilo agentboxes
 agentbox-kilo list
 
 # Run agent in default project
@@ -105,11 +105,11 @@ agentbox-opencode --help
 | Command | Description |
 |---------|-------------|
 | `agents` | List available agents |
-| `create <agent> [project]` | Create toolbox |
+| `create <agent> [project]` | Create agentbox |
 | `enter <agent> [project]` | Enter interactive shell |
 | `run <agent> [project] [cmd]` | Run command |
-| `list` | List all toolboxes |
-| `rm <agent> [project]` | Delete toolbox |
+| `list` | List all agentboxes |
+| `rm <agent> [project]` | Delete agentbox |
 | `build <agent>` | Build agent image |
 | `build-all` | Build all images |
 
@@ -139,7 +139,7 @@ agentbox run claude myproject npm test
 
 # Or use shortcut commands
 agentbox-opencode .          # Enter current project
-agentbox-kilo run . npm test # Run npm test in Kilo toolbox
+agentbox-kilo run . npm test # Run npm test in Kilo agentbox
 agentbox-qwen                # Run Qwen in default project
 ```
 
@@ -183,7 +183,7 @@ agents:
 
 ## Container Mounts
 
-When a toolbox is created, the following directories are mounted into the container:
+When an agentbox is created, the following directories are mounted into the container:
 
 | Host Path | Container Path | Description |
 |-----------|---------------|-------------|
@@ -214,12 +214,12 @@ Host User (UID 1000)  <--->  Container User (UID 1000)
    (bind mount)               (same UID, no permission issues)
 ```
 
-When a toolbox is created, the entrypoint script automatically:
+When an agentbox is created, the entrypoint script automatically:
 1. Creates a user in the container matching your host UID/GID
 2. Fixes permissions on all mounted config directories
-3. Ensures the toolbox home directory is owned by you
+3. Ensures the agentbox home directory is owned by you
 
-**Note**: If you encounter permission issues with mounted configs, try recreating the toolbox:
+**Note**: If you encounter permission issues with mounted configs, try recreating the agentbox:
 ```bash
 agentbox rm occ myproject
 agentbox create occ myproject
@@ -248,8 +248,8 @@ ssh: true
 
 ## Image Layers
 
-1. **Base Layer** (`toolbox-base`): Ubuntu + development tools
-2. **Agent Layer** (`toolbox-agent-*`): Base layer + specific agent
+1. **Base Layer** (`agentbox-base`): Ubuntu + development tools
+2. **Agent Layer** (`agentbox-*`): Base layer + specific agent
 
 Build order:
 ```bash
@@ -280,7 +280,7 @@ export NO_PROXY=localhost,127.0.0.1
 The `occ` agent combines OpenCode and Claude Code in a single container:
 
 ```bash
-# Create OCC toolbox
+# Create OCC agentbox
 agentbox create occ .
 
 # Enter and use Claude
@@ -300,7 +300,7 @@ agentbox enter occ .
 
 1. Create `agents/<name>/Containerfile`:
 ```dockerfile
-FROM localhost/toolbox-base:latest
+FROM localhost/agentbox-base:latest
 
 LABEL agent="myagent"
 

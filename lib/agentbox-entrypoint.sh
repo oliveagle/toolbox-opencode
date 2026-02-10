@@ -1,16 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-log_info() { echo "[toolbox] $*"; }
-log_warn() { echo "[toolbox] WARN: $*" >&2; }
-log_error() { echo "[toolbox] ERROR: $*" >&2; }
+log_info() { echo "[agentbox] $*"; }
+log_warn() { echo "[agentbox] WARN: $*" >&2; }
+log_error() { echo "[agentbox] ERROR: $*" >&2; }
 
 HOST_USER="${HOST_USER:-user}"
 HOST_UID="${HOST_UID:-1000}"
 HOST_GID="${HOST_GID:-1000}"
 HOME="${HOME:-/home/$HOST_USER}"
 
-log_info "Initializing toolbox for user: $HOST_USER (UID: $HOST_UID, GID: $HOST_GID)"
+log_info "Initializing agentbox for user: $HOST_USER (UID: $HOST_UID, GID: $HOST_GID)"
 
 # 只有在以 root 身份运行时才创建用户和组
 if [[ $EUID -eq 0 ]]; then
@@ -24,8 +24,8 @@ if [[ $EUID -eq 0 ]]; then
     fi
 
     if [[ -d /etc/sudoers.d ]]; then
-        echo "%sudo ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/toolbox
-        chmod 440 /etc/sudoers.d/toolbox
+        echo "%sudo ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/agentbox
+        chmod 440 /etc/sudoers.d/agentbox
         usermod -aG sudo "$HOST_USER" 2>/dev/null || true
     fi
 fi
@@ -94,7 +94,7 @@ link_configs_to_real_home() {
         ".config/qwen"
     )
 
-    # 只有当实际用户的 home 不是 toolbox home 时才需要链接
+    # 只有当实际用户的 home 不是 agentbox home 时才需要链接
     if [[ "$HOME" != "$real_home" && -d "$real_home" ]]; then
         for config in "${configs[@]}"; do
             local source="$real_home/$config"
@@ -161,9 +161,9 @@ if [[ -f "$claude_settings" ]]; then
     fi
 fi
 
-if [[ -n "${TOOLBOX_HOME:-}" && -d "$TOOLBOX_HOME" ]]; then
-    log_info "Setting up TOOLBOX_HOME: $TOOLBOX_HOME"
-    chown -R "${HOST_UID}:${HOST_GID}" "$TOOLBOX_HOME" 2>/dev/null || true
+if [[ -n "${AGENTBOX_HOME:-}" && -d "$AGENTBOX_HOME" ]]; then
+    log_info "Setting up AGENTBOX_HOME: $AGENTBOX_HOME"
+    chown -R "${HOST_UID}:${HOST_GID}" "$AGENTBOX_HOME" 2>/dev/null || true
 fi
 
 if [[ ! -d "$HOME/.ssh" ]]; then
@@ -184,7 +184,7 @@ if [[ $EUID -eq 0 && -d "${HOME}" ]]; then
     log_info "Fixed ${HOME} ownership to ${HOST_USER}:${HOST_USER}"
 fi
 
-log_info "Toolbox initialization complete"
+log_info "Agentbox initialization complete"
 
 # 如果使用 --userns=keep-id，容器已经以目标用户身份运行，直接执行命令
 # 否则需要切换用户
