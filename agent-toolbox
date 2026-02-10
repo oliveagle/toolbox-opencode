@@ -837,6 +837,8 @@ list_toolboxes() {
 
 # 删除 toolbox
 remove_toolbox() {
+    get_user_info
+
     local agent="${1:-}"
     local project_name="${2:-}"
 
@@ -859,7 +861,7 @@ remove_toolbox() {
     fi
 
     # Ask to delete home directory
-    local host_home="${HOST_HOME:-$(getent passwd "$HOST_USER" | cut -d: -f6)}"
+    local host_home="${HOST_HOME:-$(getent passwd "${HOST_USER:-$USER}" | cut -d: -f6)}"
     local toolbox_home="${host_home}/.local/share/agent-toolbox/${agent}/${project_name}"
     if [[ -d "$toolbox_home" ]]; then
         read -p "Delete isolated home directory? [y/N] " -n 1 -r
