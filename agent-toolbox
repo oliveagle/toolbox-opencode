@@ -800,25 +800,31 @@ list_toolboxes() {
     get_user_info
     log_info "AI Agent Toolbox 容器:"
     echo
-    
+
     local containers
-    containers=$("$CONTAINER_ENGINE" ps -a --filter "name=agentbox-" --format "{{.Names}}|{{.Status}}|{{.Image}}" 2>/dev/null)
-    
+    containers=$("$CONTAINER_ENGINE" ps -a --filter "name=agentbox-" --format "{{.Names}}|{{.Status}}" 2>/dev/null)
+
     if [[ -n "$containers" ]]; then
-        printf "%-40s %-15s %-20s\n" "容器名称" "Agent" "状态"
-        echo "$(printf '%0.s-' {1..80})"
-        
-        while IFS='|' read -r name status image; do
-            # 解析 agent 名称
-            local agent="${name#agentbox-}"
-            agent="${agent%%-*}"
-            printf "%-40s %-15s %-20s\n" "$name" "$agent" "$status"
+        printf "%-30s %-10s %-35s %-15s\n" "项目名" "Agent" "容器名" "状态"
+        echo "$(printf '%0.s-' {1..100})"
+
+        while IFS='|' read -r name status; do
+            # 解析 agent 和 project 名称
+            # 容器名格式: agentbox-{agent}-{project}
+            local rest="${name#agentbox-}"
+            local agent="${rest%%-*}"
+            local project="${rest#*-}"
+
+            # 简化状态显示 (只取第一个词)
+            local simple_status="${status%% *}"
+
+            printf "%-30s %-10s %-35s %-15s\n" "$project" "$agent" "$name" "$simple_status"
         done <<< "$containers"
     else
         echo "  没有 toolbox 容器"
     fi
     echo
-    
+
     # 显示存储使用情况
     local toolbox_base="${HOST_HOME}/.local/share/agent-toolbox"
     if [[ -d "$toolbox_base" ]]; then
