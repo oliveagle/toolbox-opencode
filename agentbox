@@ -90,6 +90,28 @@ get_script_dir() {
     cd "$(dirname "${BASH_SOURCE[0]}")" && pwd
 }
 
+# 获取 agents 目录（支持安装后从 share 目录读取）
+get_agents_dir() {
+    local script_dir
+    script_dir=$(get_script_dir)
+
+    # 优先使用脚本所在目录的 agents/
+    if [[ -d "$script_dir/agents" ]]; then
+        echo "$script_dir/agents"
+        return
+    fi
+
+    # 回退到安装目录的 agents/
+    local share_agents="${HOME}/.local/share/agentbox/agents"
+    if [[ -d "$share_agents" ]]; then
+        echo "$share_agents"
+        return
+    fi
+
+    # 都找不到则返回空
+    echo ""
+}
+
 # 初始化配置
 init_config() {
     if [[ ! -d "$CONFIG_DIR" ]]; then
@@ -232,22 +254,28 @@ get_agent_config_list() {
     local agent="$1"
     local key="$2"
     local config_file="$CONFIG_DIR/agents.yaml"
-    
+
     if [[ -f "$config_file" ]]; then
         # First check if it's a YAML array (multi-line format)
         local block=$(grep -A 20 "^  ${agent}:" "$config_file" 2>/dev/null)
-        
-        # Check if the key starts a YAML array (next line starts with "- ")
+
+        # Check if the key exists and if the next line starts with "- " (YAML array)
         local key_line=$(echo "$block" | grep -n "^    ${key}:" | head -1 | cut -d: -f1)
         if [[ -n "$key_line" ]]; then
             local next_line=$((key_line + 1))
             local array_content=$(echo "$block" | tail -n +$next_line)
 
-            # Extract all items from the YAML array (match lines with "- " at any indentation)
-            echo "$array_content" | grep -E "^\s*- " | sed 's/^\s*- //' | tr -d '"' | xargs
+            # Check if the next line starts with "- " (YAML array format)
+            if echo "$array_content" | head -1 | grep -q "^\s*- "; then
+                # Extract all items from the YAML array (match lines with "- " at any indentation)
+                echo "$array_content" | grep -E "^\s*- " | sed 's/^\s*- //' | tr -d '"' | xargs
+            else
+                # Key exists but not an array - use comma-separated format
+                echo "$block" | grep "^    ${key}:" | sed "s/^    ${key}:\s*//" | tr -d '"' | tr ',' ' '
+            fi
         else
-            # Fallback to comma-separated single-line format
-            echo "$block" | grep "^    ${key}:" | sed "s/^    ${key}:\s*//" | tr -d '"' | tr -d ' '
+            # Fallback: key not found, try without indentation
+            echo "$block" | grep "${key}:" | sed "s/.*${key}:\s*//" | tr -d '"' | tr ',' ' '
         fi
     else
         echo ""
@@ -309,17 +337,17 @@ build_agent_image() {
         return 1
     fi
 
-    local script_dir
-    script_dir=$(get_script_dir)
+    local agents_dir
+    agents_dir=$(get_agents_dir)
 
-    local agent_dir="$script_dir/agents/$agent"
+    local agent_dir="$agents_dir/$agent"
     local agent_file="$agent_dir/Containerfile"
 
     if [[ ! -f "$agent_file" ]]; then
         log_error "未找到 Agent '$agent' 的 Containerfile"
         log_info "可用 agents:"
-        ls -1 "$script_dir/agents/" 2>/dev/null | while read -r a; do
-            [[ -d "$script_dir/agents/$a" ]] && echo "  - $a"
+        ls -1 "$agents_dir/" 2>/dev/null | while read -r a; do
+            [[ -d "$agents_dir/$a" ]] && echo "  - $a"
         done
         return 1
     fi
@@ -359,38 +387,44 @@ build_agent_image() {
 
 # 构建所有 Agent 镜像
 build_all_agents() {
-    local script_dir
-    script_dir=$(get_script_dir)
-    
+    local agents_dir
+    agents_dir=$(get_agents_dir)
+
     log_info "构建所有 Agent 镜像..."
-    
+
     # 先构建基础镜像
     build_base_image || return 1
-    
+
     # 遍历所有 agent 目录
-    for agent_dir in "$script_dir"/agents/*/; do
+    for agent_dir in "$agents_dir"/*/; do
         if [[ -d "$agent_dir" ]]; then
             local agent=$(basename "$agent_dir")
             log_info "构建 agent: $agent"
             build_agent_image "$agent" || log_warn "$agent 构建失败"
         fi
     done
-    
+
     log_success "所有 Agent 镜像构建完成"
 }
 
 # 列出所有可用 agents
 list_agents() {
-    local script_dir
-    script_dir=$(get_script_dir)
-    
+    local agents_dir
+    agents_dir=$(get_agents_dir)
+
+    # 如果找不到 agents 目录，显示警告
+    if [[ -z "$agents_dir" ]]; then
+        log_warn "未找到 agents 目录"
+        return 1
+    fi
+
     log_info "可用 AI Agents:"
     echo
-    
+
     printf "%-15s %-20s %s\n" "Agent" "名称" "镜像"
     echo "$(printf '%0.s-' {1..70})"
-    
-    for agent_dir in "$script_dir"/agents/*/; do
+
+    for agent_dir in "$agents_dir"/*/; do
         if [[ -d "$agent_dir" ]]; then
             local agent=$(basename "$agent_dir")
             local name=$(get_agent_config "$agent" "name")
@@ -462,25 +496,24 @@ generate_mount_args() {
                     local config_name
                     config_name=$(basename "$agent_config_dir")
 
-                    # 使用独特名称避免与预创建目录冲突（如 .claude, .opencode-config）
-                    # 以 . 开头使隐藏，放在 $HOME 下
-                    # 注意：config_name 可能以 . 开头（如 .claude）
-                    local container_config_dir
-                    if [[ "$config_name" == "opencode" ]]; then
-                        container_config_dir=".opencode-config"
-                    elif [[ "$config_name" == ".claude" ]]; then
-                        container_config_dir=".claude"
-                    elif [[ "$config_name" == ".config" ]]; then
-                        container_config_dir=".config"
+                    # 计算容器内的目标路径
+                    # 对于 .config/* 目录，挂载到 /home/agentboxuser/.config/
+                    # 对于其他隐藏目录（如 .claude），挂载到 /home/agentboxuser/
+                    local container_dest
+                    if [[ "$agent_config_dir" == *"/.config/"* ]]; then
+                        # ~/.config/xxx → /home/agentboxuser/.config/xxx
+                        local subdir
+                        subdir=$(basename "$agent_config_dir")
+                        container_dest="/home/agentboxuser/.config/${subdir}"
+                    elif [[ "$config_name" == .* ]]; then
+                        # 隐藏目录（如 .claude）→ /home/agentboxuser/.claude
+                        container_dest="/home/agentboxuser/${config_name}"
                     else
-                        # 对于其他目录，添加 . 前缀（如 opencode → .opencode-config）
-                        container_config_dir=".${config_name}-config"
+                        # 其他情况，挂载到隔离 HOME
+                        container_dest="${agentbox_home}/.${config_name}-config"
                     fi
 
-                    # 计算容器内的目标路径（挂载到隔离 HOME 下）
-                    local container_dest="${agentbox_home}/${container_config_dir}"
-
-                    # 直接挂载到隔离 HOME，不创建符号链接
+                    # 直接挂载到目标路径
                     mount_args+=(--volume "${agent_config_dir}:${container_dest}:rw")
                 fi
             done
@@ -632,7 +665,7 @@ create_agentbox() {
         --env "HOST_USER=${HOST_USER}"
         --env "HOST_UID=${HOST_UID}"
         --env "HOST_GID=${HOST_GID}"
-        --env "HOME=${agentbox_home}"
+        --env "HOME=/home/agentboxuser"
         --env "AGENTBOX_HOME=${agentbox_home}"
         --env "AGENT=${agent}"
         --volume "${agentbox_home}:${agentbox_home}:rw"
@@ -742,7 +775,7 @@ enter_agentbox() {
     
     exec "$CONTAINER_ENGINE" exec -it \
         --user "$HOST_UID:$HOST_GID" \
-        --env "HOME=$agentbox_home" \
+        --env "HOME=/home/agentboxuser" \
         --env "AGENTBOX_HOME=$agentbox_home" \
         "$container_name" \
         /bin/bash -c "
@@ -816,7 +849,7 @@ run_agentbox() {
     
     "$CONTAINER_ENGINE" exec \
         --user "$HOST_UID:$HOST_GID" \
-        --env "HOME=$agentbox_home" \
+        --env "HOME=/home/agentboxuser" \
         --env "PATH=${agentbox_home}/.local/bin:/usr/local/bin:/usr/bin:/bin" \
         "$container_name" \
         /bin/bash -c "cd '\$(pwd)' 2>/dev/null || true; exec ${cmd_args[*]}"
