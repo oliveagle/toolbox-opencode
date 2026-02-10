@@ -1,0 +1,171 @@
+name: Check and Update Versions
+
+on:
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  # Allow manual trigger
+  workflow_dispatch:
+  # Trigger on repository dispatch if upstream repos send events
+  repository_dispatch:
+    types: [upstream_release]
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      opencode_updated: ${{ steps.check-opencode.outputs.updated }}
+      claude_code_updated: ${{ steps.check-claude-code.outputs.updated }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Get current versions
+        id: current-versions
+        run: |
+          # Read current versions from VERSION file
+          # Format: "opencode=X.X.X,claude_code=X.X.X"
+          if [ -f VERSION ]; then
+            echo "Current VERSION file content:"
+            cat VERSION
+          else
+            echo "VERSION file not found"
+          fi
+
+      # Check OpenCode version
+      - name: Check OpenCode release
+        id: check-opencode
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          # Get latest release from anomalyco/opencode
+          OPENCODE_LATEST=$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' 2>/dev/null | sed 's/v//' || echo "unknown")
+          echo "OpenCode latest version: $OPENCODE_LATEST"
+
+          # Get current version from VERSION file
+          CURRENT=$(grep "opencode=" VERSION 2>/dev/null | cut -d'=' -f2 || echo "0.0.0")
+
+          echo "OpenCode current version: $CURRENT"
+
+          # Compare versions
+          if [ "$OPENCODE_LATEST" != "$CURRENT" ] && [ "$OPENCODE_LATEST" != "unknown" ]; then
+            echo "OpenCode update available: $CURRENT -> $OPENCODE_LATEST"
+            echo "updated=true" >> $GITHUB_OUTPUT
+            echo "new_version=$OPENCODE_LATEST" >> $GITHUB_OUTPUT
+          else
+            echo "updated=false" >> $GITHUB_OUTPUT
+            echo "new_version=$CURRENT" >> $GITHUB_OUTPUT
+          fi
+
+      # Check Claude Code version
+      - name: Check Claude Code release
+        id: check-claude-code
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          # Get latest release from anthropics/claude-code
+          CLAUDE_CODE_LATEST=$(gh api repos/anthropics/claude-code/releases/latest --jq '.tag_name' 2>/dev/null | sed 's/v//' || echo "unknown")
+          echo "Claude Code latest version: $CLAUDE_CODE_LATEST"
+
+          # Get current version from VERSION file
+          CURRENT=$(grep "claude_code=" VERSION 2>/dev/null | cut -d'=' -f2 || echo "0.0.0")
+
+          echo "Claude Code current version: $CURRENT"
+
+          # Compare versions
+          if [ "$CLAUDE_CODE_LATEST" != "$CURRENT" ] && [ "$CLAUDE_CODE_LATEST" != "unknown" ]; then
+            echo "Claude Code update available: $CURRENT -> $CLAUDE_CODE_LATEST"
+            echo "updated=true" >> $GITHUB_OUTPUT
+            echo "new_version=$CLAUDE_CODE_LATEST" >> $GITHUB_OUTPUT
+          else
+            echo "updated=false" >> $GITHUB_OUTPUT
+            echo "new_version=$CURRENT" >> $GITHUB_OUTPUT
+          fi
+
+  update-versions:
+    needs: check-versions
+    runs-on: ubuntu-latest
+    if: needs.check-versions.outputs.opencode_updated == 'true' || needs.check-versions.outputs.claude_code_updated == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get versions from previous job
+        id: get-versions
+        env:
+          OPENCODE_UPDATED: ${{ needs.check-versions.outputs.opencode_updated }}
+          OPENCODE_NEW: ${{ steps.check-opencode.outputs.new_version || steps.current-versions.outputs.opencode_current }}
+          CLAUDE_CODE_UPDATED: ${{ needs.check-versions.outputs.claude_code_updated }}
+          CLAUDE_CODE_NEW: ${{ steps.check-claude-code.outputs.new_version || steps.current-versions.outputs.claude_code_current }}
+        run: |
+          # Read current versions
+          OPENCODE_CURRENT=$(grep "opencode=" VERSION 2>/dev/null | cut -d'=' -f2 || echo "0.0.0")
+          CLAUDE_CODE_CURRENT=$(grep "claude_code=" VERSION 2>/dev/null | cut -d'=' -f2 || echo "0.0.0")
+
+          echo "OpenCode current: $OPENCODE_CURRENT, Claude Code current: $CLAUDE_CODE_CURRENT"
+
+          # Determine new versions
+          if [ "$OPENCODE_UPDATED" == "true" ]; then
+            OPENCODE_FINAL=$OPENCODE_NEW
+          else
+            OPENCODE_FINAL=$OPENCODE_CURRENT
+          fi
+
+          if [ "$CLAUDE_CODE_UPDATED" == "true" ]; then
+            CLAUDE_CODE_FINAL=$CLAUDE_CODE_NEW
+          else
+            CLAUDE_CODE_FINAL=$CLAUDE_CODE_CURRENT
+          fi
+
+          echo "OpenCode final: $OPENCODE_FINAL, Claude Code final: $CLAUDE_CODE_FINAL"
+
+          # Update VERSION file
+          cat > VERSION << EOF
+          opencode=$OPENCODE_FINAL
+          claude_code=$CLAUDE_CODE_FINAL
+          EOF
+
+          echo "Updated VERSION file:"
+          cat VERSION
+
+          # Set outputs for commit message
+          echo "commit_message=Update versions: opencode=$OPENCODE_FINAL, claude_code=$CLAUDE_CODE_FINAL" >> $GITHUB_ENV
+
+      - name: Update agentbox version reference
+        run: |
+          # Update AGENTBOX_VERSION if needed based on latest dependency versions
+          # This is a placeholder - you can customize the logic
+          echo "# Version update on $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> VERSION_HISTORY.md
+          echo "Updated VERSION file" >> VERSION_HISTORY.md
+
+      - name: Create commit and PR
+        run: |
+          # Add changes
+          git add VERSION VERSION_HISTORY.md 2>/dev/null || true
+
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Create commit
+          git commit -m "${{ env.commit_message }}"
+
+          # Push to main branch directly
+          git push origin main
+
+          echo "Version update committed and pushed"
