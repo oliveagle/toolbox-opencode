@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# 版本
+AGENTBOX_VERSION="0.1.0"
+
 # 基础配置
 AGENTBOX_BASE_IMAGE="${AGENTBOX_BASE_IMAGE:-ghcr.io/oliveagle/agentbox/agentbox-base:latest}"
 TOOLBOX_BASE_IMAGE="${TOOLBOX_BASE_IMAGE:-${AGENTBOX_BASE_IMAGE}}"
@@ -909,8 +912,9 @@ kill_agentbox() {
 
 # 显示帮助
 show_help() {
-    cat << 'EOF'
+    cat << EOF
 AI Agent Toolbox - 多 Agent 容器管理工具
+版本: ${AGENTBOX_VERSION}
 
 用法:
   agentbox agents                          列出可用 Agents
@@ -989,6 +993,9 @@ main() {
             ;;
         build-all)
             build_all_agents
+            ;;
+        version|--version|-v)
+            echo "agentbox version ${AGENTBOX_VERSION}"
             ;;
         help|--help|-h)
             show_help
