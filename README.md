@@ -44,6 +44,24 @@ Multi-AI Agent container management tool with shared base OS layer and isolated 
 curl -fsSL https://raw.githubusercontent.com/oliveagle/agentbox/main/install.sh | bash
 ```
 
+## Shell Completion
+
+Agentbox includes shell completion scripts for bash and zsh:
+
+### Bash
+
+```bash
+# Add to ~/.bashrc
+source ~/.local/share/agentbox/scripts/completions/agentbox.bash
+```
+
+### Zsh
+
+```bash
+# Add to ~/.zshrc
+source ~/.local/share/agentbox/scripts/completions/agentbox.zsh
+```
+
 ## Quick Start
 
 ```bash
