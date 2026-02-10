@@ -833,18 +833,18 @@ list_toolboxes() {
 remove_toolbox() {
     local agent="${1:-}"
     local project_name="${2:-}"
-    
+
     if [[ -z "$agent" ]]; then
         log_error "需要指定 Agent 名称"
         echo "用法: agent-toolbox rm <agent> [project-name]"
         return 1
     fi
-    
+
     project_name=$(normalize_name "${project_name:-$(pwd)}")
-    
+
     local container_name
     container_name=$(generate_container_name "$agent" "$project_name")
-    
+
     log_warn "Removing toolbox: $container_name"
 
     if "$CONTAINER_ENGINE" ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
@@ -865,6 +865,32 @@ remove_toolbox() {
     fi
 }
 
+# 停止 toolbox
+kill_toolbox() {
+    local agent="${1:-}"
+    local project_name="${2:-}"
+
+    if [[ -z "$agent" ]]; then
+        log_error "需要指定 Agent 名称"
+        echo "用法: agent-toolbox kill <agent> [project-name]"
+        return 1
+    fi
+
+    project_name=$(normalize_name "${project_name:-$(pwd)}")
+
+    local container_name
+    container_name=$(generate_container_name "$agent" "$project_name")
+
+    log_info "Stopping toolbox: $container_name"
+
+    if "$CONTAINER_ENGINE" ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
+        "$CONTAINER_ENGINE" stop "$container_name" 2>/dev/null
+        log_success "Container stopped"
+    else
+        log_warn "Container is not running"
+    fi
+}
+
 # 显示帮助
 show_help() {
     cat << 'EOF'
@@ -876,6 +902,7 @@ AI Agent Toolbox - 多 Agent 容器管理工具
   agent-toolbox enter <agent> [project]         进入 toolbox
   agent-toolbox run <agent> [project] [cmd]     运行命令
   agent-toolbox list                            列出所有 toolbox
+  agent-toolbox kill <agent> [project]          停止 toolbox
   agent-toolbox rm <agent> [project]            删除 toolbox
   agent-toolbox build <agent>                   构建 Agent 镜像
   agent-toolbox build-all                       构建所有 Agent 镜像
@@ -937,6 +964,9 @@ main() {
             ;;
         rm|remove)
             remove_toolbox "$@"
+            ;;
+        kill|stop)
+            kill_toolbox "$@"
             ;;
         build)
             build_agent_image "$@"

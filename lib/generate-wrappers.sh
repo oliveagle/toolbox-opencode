@@ -51,6 +51,7 @@ Usage:
   ${wrapper_name} run [project] [cmd]  Run command
   ${wrapper_name} build               Build image
   ${wrapper_name} rm [project]        Delete toolbox
+  ${wrapper_name} kill [project]      Stop toolbox
   ${wrapper_name} list                List toolboxes
 
 Examples:
@@ -60,6 +61,7 @@ Examples:
   ${wrapper_name} create .     # Create toolbox for current dir
   ${wrapper_name} run .        # Run agent (default command)
   ${wrapper_name} run . git status   # Run git status in toolbox
+  ${wrapper_name} kill .       # Stop toolbox
 
 HELP
 }
@@ -80,7 +82,7 @@ elif [[ "\$1" == "--help" || "\$1" == "-h" || "\$1" == "help" ]]; then
 else
     # Check if first arg is a subcommand
     case "\$1" in
-        create|enter|run|build|rm|remove|list|ls)
+        create|enter|run|build|rm|remove|kill|stop|list|ls)
             cmd="\$1"
             shift
             project="\${1:-.}"
@@ -117,6 +119,9 @@ case "\$cmd" in
         ;;
     rm|remove)
         \$TOOLBOX_CMD rm "\$AGENT" "\$project"
+        ;;
+    kill|stop)
+        \$TOOLBOX_CMD kill "\$AGENT" "\$project"
         ;;
     list|ls)
         \$TOOLBOX_CMD list | grep "agentbox-\$AGENT"
