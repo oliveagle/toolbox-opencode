@@ -260,6 +260,21 @@ agent-toolbox build opencode
 agent-toolbox build claude
 ```
 
+### Build with Proxy
+
+Builds use host network (`--network=host`) to access localhost proxies:
+
+```bash
+# Use proxy from environment variables
+HTTP_PROXY=http://localhost:8080 agent-toolbox build occ
+HTTPS_PROXY=http://proxy.example.com:8080 agent-toolbox build-all
+
+# Or set globally in your shell profile
+export HTTP_PROXY=http://localhost:8080
+export HTTPS_PROXY=http://proxy.example.com:8080
+export NO_PROXY=localhost,127.0.0.1
+```
+
 ## OCC Agent (OpenCode + Claude)
 
 The `occ` agent combines OpenCode and Claude Code in a single container:
