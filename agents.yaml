@@ -5,6 +5,13 @@ default_agent: occ
 
 # Agent 定义
 agents:
+  opencode:
+    name: OpenCode
+    description: OpenCode AI coding agent
+    image: localhost/agentbox-opencode:latest
+    cmd: opencode-skip
+    config_dirs: ~/.config/opencode
+
   occ:
     name: OCC
     description: OpenCode + Claude Code combined
