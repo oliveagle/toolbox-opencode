@@ -107,6 +107,9 @@ build_images() {
     [[ -n "${https_proxy:-}" ]] && build_args+=(--build-arg "https_proxy=$https_proxy")
     [[ -n "${no_proxy:-}" ]] && build_args+=(--build-arg "no_proxy=$no_proxy")
 
+    # Use host network for build (needed for localhost proxy access)
+    build_args+=(--network=host)
+
     if podman build "${build_args[@]}" -t localhost/toolbox-base:latest -f images/Containerfile.base .; then
         log_success "基础镜像构建成功"
     else
