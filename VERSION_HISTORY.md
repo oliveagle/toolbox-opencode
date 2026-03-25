@@ -122,3 +122,7 @@ claude_code=2.1.81
 ## 2026-03-23
 opencode=1.3.0
 claude_code=2.1.81
+
+## 2026-03-25
+opencode=1.3.2
+claude_code=2.1.81
